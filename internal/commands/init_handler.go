@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	helperfuncs "github.com/IArtMediums/mk-cli/internal/helper_funcs"
-	parser "github.com/IArtMediums/mk-cli/internal/template_parser"
+	helperfuncs "github.com/IArtMediums/mk/internal/helper_funcs"
+	parser "github.com/IArtMediums/mk/internal/template_parser"
 )
 
 func initHandler(cfg *cmdConfig) error {

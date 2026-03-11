@@ -5,7 +5,7 @@ import (
 	"os"
 	"runtime/debug"
 
-	"github.com/IArtMediums/mk-cli/internal/commands"
+	"github.com/IArtMediums/mk/internal/commands"
 )
 
 var version = "dev"

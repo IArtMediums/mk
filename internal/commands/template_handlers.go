@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	parser "github.com/IArtMediums/mk-cli/internal/template_parser"
+	parser "github.com/IArtMediums/mk/internal/template_parser"
 )
 
 func templateListHandler(cfg *cmdConfig) error {

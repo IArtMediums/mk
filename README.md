@@ -151,7 +151,7 @@ $env:Path = "$HOME\AppData\Local\Programs;$env:Path"
 If you want to install it directly with Go, run:
 
 ```sh
-go install github.com/IArtMediums/mk-cli@latest
+go install github.com/IArtMediums/mk@latest
 ```
 
 This places the binary in your Go bin directory, usually:
@@ -173,8 +173,8 @@ On many systems the binary ends up in one of these locations:
 - Linux/macOS: `$(go env GOPATH)/bin`
 - Windows: `%USERPROFILE%\\go\\bin`
 
-The repository/module name is `mk-cli`, but the installed executable is still
-named `mk`.
+The repository/module name is `mk`, and the installed executable is also named
+`mk`.
 
 ### Verify Installation
 
@@ -202,13 +202,13 @@ git push origin v1.0.0
 After that, users can install either:
 
 ```sh
-go install github.com/IArtMediums/mk-cli@v1.0.0
+go install github.com/IArtMediums/mk@v1.0.0
 ```
 
 or:
 
 ```sh
-go install github.com/IArtMediums/mk-cli@latest
+go install github.com/IArtMediums/mk@latest
 ```
 
 ## First Run
