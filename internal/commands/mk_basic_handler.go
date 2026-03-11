@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	helperfuncs "github.com/iartmediums/mk-cli/internal/helper_funcs"
+	helperfuncs "github.com/IArtMediums/mk-cli/internal/helper_funcs"
 )
 
 func pathHandler(cfg *cmdConfig) error {

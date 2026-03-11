@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	helperfuncs "github.com/iartmediums/mk-cli/internal/helper_funcs"
+	helperfuncs "github.com/IArtMediums/mk-cli/internal/helper_funcs"
 )
 
 const (
