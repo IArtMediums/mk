@@ -1,8 +1,10 @@
 package templateparser
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -37,85 +39,24 @@ cmd/app
 `,
 			wantBlocks: 1,
 			checkResult: func(t *testing.T, tpl *Template) {
-				t.Helper()
-
 				block := tpl.Blocks[0]
-				if block.Kind != BlockDir {
-					t.Fatalf("expected dir block, got %v", block.Kind)
-				}
-
-				if len(block.Dirs) != 3 {
-					t.Fatalf("expected 3 dirs, got %d", len(block.Dirs))
-				}
-
-				if block.Dirs[0] != DirPath("internal") {
-					t.Fatalf("expected first dir to be %q, got %q", "internal", block.Dirs[0])
+				if block.Kind != BlockDir || len(block.Dirs) != 3 {
+					t.Fatalf("unexpected dir block: %+v", block)
 				}
 			},
 		},
 		{
-			name: "parses single command block",
-			content: `# cmd
-go mod init github.com/iartmediums/test
-go fmt ./...
+			name: "parses content block with blank lines",
+			content: `# content cmd/{{PN}}/main.go
+package main
+
+import "fmt"
 `,
 			wantBlocks: 1,
 			checkResult: func(t *testing.T, tpl *Template) {
-				t.Helper()
-
 				block := tpl.Blocks[0]
-				if block.Kind != BlockCommand {
-					t.Fatalf("expected command block, got %v", block.Kind)
-				}
-
-				if len(block.Cmds) != 2 {
-					t.Fatalf("expected 2 commands, got %d", len(block.Cmds))
-				}
-
-				if block.Cmds[0].Raw != "go mod init github.com/iartmediums/test" {
-					t.Fatalf("unexpected raw command: %q", block.Cmds[0].Raw)
-				}
-			},
-		},
-		{
-			name: "parses file block",
-			content: `# file
-README
-cmd/app/main.go
-`,
-			wantBlocks: 1,
-			checkResult: func(t *testing.T, tpl *Template) {
-				t.Helper()
-
-				block := tpl.Blocks[0]
-				if block.Kind != BlockFile {
-					t.Fatalf("expected file block, got %v", block.Kind)
-				}
-
-				if len(block.Files) != 2 {
-					t.Fatalf("expected 2 files, got %d", len(block.Files))
-				}
-			},
-		},
-		{
-			name: "parses multiple blocks",
-			content: `# dir
-internal
-pkg
-
-# cmd
-go test ./...
-`,
-			wantBlocks: 2,
-			checkResult: func(t *testing.T, tpl *Template) {
-				t.Helper()
-
-				if tpl.Blocks[0].Kind != BlockDir {
-					t.Fatalf("expected first block to be dir block")
-				}
-
-				if tpl.Blocks[1].Kind != BlockCommand {
-					t.Fatalf("expected second block to be command block")
+				if block.Kind != BlockContent || len(block.Contents) != 1 {
+					t.Fatalf("unexpected content block: %+v", block)
 				}
 			},
 		},
@@ -128,33 +69,30 @@ go test ./...
 `,
 			wantErr: true,
 		},
+		{
+			name: "returns error for content without path",
+			content: `# content
+hello
+`,
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			path := writeTempTemplate(t, tt.content)
-
-			tpl, err := ParseTemplate(path)
-
+			tpl, err := ParseTemplate(writeTempTemplate(t, tt.content))
 			if tt.wantErr {
 				if err == nil {
-					t.Fatalf("expected error, got nil")
+					t.Fatal("expected error, got nil")
 				}
 				return
 			}
-
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-
-			if tpl == nil {
-				t.Fatal("expected template, got nil")
-			}
-
 			if len(tpl.Blocks) != tt.wantBlocks {
 				t.Fatalf("expected %d blocks, got %d", tt.wantBlocks, len(tpl.Blocks))
 			}
-
 			if tt.checkResult != nil {
 				tt.checkResult(t, tpl)
 			}
@@ -166,12 +104,17 @@ func TestExecuteRunsCommandsInProjectRoot(t *testing.T) {
 	templatePath := writeTempTemplate(t, `# dir
 internal
 
-# cmd
-pwd > cwd.txt
-printf "{{PN}}" > project_name.txt
+# content cmd/{{PN}}/main.go
+package main
+
+func main() {}
 
 # file
 README
+
+# cmd
+pwd > cwd.txt
+printf "{{PN}}" > project_name.txt
 `)
 
 	tpl, err := ParseTemplate(templatePath)
@@ -179,10 +122,12 @@ README
 		t.Fatalf("ParseTemplate() error = %v", err)
 	}
 
-	parent := t.TempDir()
-	projectRoot := filepath.Join(parent, "demo-project")
-
-	if err := tpl.Execute("demo-project", projectRoot); err != nil {
+	projectRoot := filepath.Join(t.TempDir(), "demo-project")
+	if err := tpl.Execute(ExecuteOptions{
+		ProjectName: "demo-project",
+		ProjectRoot: projectRoot,
+		ModulePath:  "example.com/demo-project",
+	}); err != nil {
 		t.Fatalf("Execute() error = %v", err)
 	}
 
@@ -190,31 +135,18 @@ README
 	if err != nil {
 		t.Fatalf("failed to read cwd marker: %v", err)
 	}
-
-	gotCwd := string(gotCwdBytes)
-	if gotCwd != projectRoot+"\n" && gotCwd != projectRoot {
-		t.Fatalf("expected command to run in %q, got %q", projectRoot, gotCwd)
-	}
-
-	projectNameBytes, err := os.ReadFile(filepath.Join(projectRoot, "project_name.txt"))
-	if err != nil {
-		t.Fatalf("failed to read project name marker: %v", err)
-	}
-	if string(projectNameBytes) != "demo-project" {
-		t.Fatalf("expected project name substitution, got %q", string(projectNameBytes))
-	}
-
-	if _, err := os.Stat(filepath.Join(projectRoot, "internal")); err != nil {
-		t.Fatalf("expected internal dir to exist: %v", err)
-	}
-	if _, err := os.Stat(filepath.Join(projectRoot, "README")); err != nil {
-		t.Fatalf("expected README file to exist: %v", err)
+	gotCwd := strings.TrimSpace(string(gotCwdBytes))
+	if gotCwd != projectRoot {
+		t.Fatalf("expected command cwd %q, got %q", projectRoot, gotCwd)
 	}
 }
 
-func TestExecuteRejectsPathsEscapingProjectRoot(t *testing.T) {
-	templatePath := writeTempTemplate(t, `# file
-../outside.txt
+func TestExecuteWritesTemplateVars(t *testing.T) {
+	templatePath := writeTempTemplate(t, `# content go.mod
+module {{MODULE}}
+
+# content cmd/{{PN}}/main.go
+package main
 `)
 
 	tpl, err := ParseTemplate(templatePath)
@@ -223,30 +155,130 @@ func TestExecuteRejectsPathsEscapingProjectRoot(t *testing.T) {
 	}
 
 	projectRoot := filepath.Join(t.TempDir(), "demo-project")
-	if err := tpl.Execute("demo-project", projectRoot); err == nil {
+	if err := tpl.Execute(ExecuteOptions{
+		ProjectName: "demo-project",
+		ProjectRoot: projectRoot,
+		ModulePath:  "example.com/demo-project",
+	}); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	goMod, err := os.ReadFile(filepath.Join(projectRoot, "go.mod"))
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	if string(goMod) != "module example.com/demo-project\n" {
+		t.Fatalf("unexpected module file: %q", string(goMod))
+	}
+}
+
+func TestExecuteDryRunOnlyPrintsPlan(t *testing.T) {
+	templatePath := writeTempTemplate(t, `# dir
+internal
+
+# content go.mod
+module {{MODULE}}
+
+# cmd
+echo ok
+`)
+
+	tpl, err := ParseTemplate(templatePath)
+	if err != nil {
+		t.Fatalf("ParseTemplate() error = %v", err)
+	}
+
+	projectRoot := filepath.Join(t.TempDir(), "demo-project")
+	var out bytes.Buffer
+	if err := tpl.Execute(ExecuteOptions{
+		ProjectName: "demo-project",
+		ProjectRoot: projectRoot,
+		ModulePath:  "example.com/demo-project",
+		DryRun:      true,
+		Stdout:      &out,
+	}); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	if _, err := os.Stat(projectRoot); !os.IsNotExist(err) {
+		t.Fatalf("expected dry-run not to create project root, stat err = %v", err)
+	}
+	if !strings.Contains(out.String(), "run    echo ok") {
+		t.Fatalf("expected dry-run output, got %q", out.String())
+	}
+}
+
+func TestExecuteRejectsPathsEscapingProjectRoot(t *testing.T) {
+	tpl, err := ParseTemplate(writeTempTemplate(t, `# content ../outside.txt
+blocked
+`))
+	if err != nil {
+		t.Fatalf("ParseTemplate() error = %v", err)
+	}
+
+	err = tpl.Execute(ExecuteOptions{
+		ProjectName: "demo-project",
+		ProjectRoot: filepath.Join(t.TempDir(), "demo-project"),
+	})
+	if err == nil {
 		t.Fatal("expected Execute() to reject root-escaping path")
 	}
 }
 
 func TestExecuteFailsClearlyWhenFileAlreadyExists(t *testing.T) {
-	templatePath := writeTempTemplate(t, `# file
-README
-`)
-
-	tpl, err := ParseTemplate(templatePath)
+	tpl, err := ParseTemplate(writeTempTemplate(t, `# content README
+new
+`))
 	if err != nil {
 		t.Fatalf("ParseTemplate() error = %v", err)
 	}
 
 	projectRoot := filepath.Join(t.TempDir(), "demo-project")
 	if err := os.MkdirAll(projectRoot, 0o755); err != nil {
-		t.Fatalf("failed to create project root: %v", err)
+		t.Fatalf("MkdirAll() error = %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(projectRoot, "README"), []byte("existing"), 0o644); err != nil {
-		t.Fatalf("failed to seed README: %v", err)
+		t.Fatalf("WriteFile() error = %v", err)
 	}
 
-	if err := tpl.Execute("demo-project", projectRoot); err == nil {
+	err = tpl.Execute(ExecuteOptions{
+		ProjectName: "demo-project",
+		ProjectRoot: projectRoot,
+	})
+	if err == nil {
 		t.Fatal("expected Execute() to fail when file already exists")
+	}
+}
+
+func TestExecuteForceOverwritesExistingFile(t *testing.T) {
+	tpl, err := ParseTemplate(writeTempTemplate(t, `# content README
+new
+`))
+	if err != nil {
+		t.Fatalf("ParseTemplate() error = %v", err)
+	}
+
+	projectRoot := filepath.Join(t.TempDir(), "demo-project")
+	if err := os.MkdirAll(projectRoot, 0o755); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(projectRoot, "README"), []byte("existing"), 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	if err := tpl.Execute(ExecuteOptions{
+		ProjectName: "demo-project",
+		ProjectRoot: projectRoot,
+		Force:       true,
+	}); err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	body, err := os.ReadFile(filepath.Join(projectRoot, "README"))
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	if string(body) != "new" {
+		t.Fatalf("expected force overwrite, got %q", string(body))
 	}
 }

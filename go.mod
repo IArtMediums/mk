@@ -1,3 +1,3 @@
-module github.com/iartmediums.com/cmd_create_file
+module github.com/iartmediums/mk-cli
 
 go 1.25.4

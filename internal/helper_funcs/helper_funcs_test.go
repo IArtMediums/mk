@@ -49,3 +49,39 @@ func TestCreateFileDoesNotOverwriteExistingContent(t *testing.T) {
 		t.Fatal("expected CreateFile to fail when file already exists")
 	}
 }
+
+func TestCreateFileWithForceOverwritesExistingContent(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "README")
+	if err := os.WriteFile(path, []byte("existing"), 0o644); err != nil {
+		t.Fatalf("failed to seed file: %v", err)
+	}
+
+	if err := CreateFileWithMode(path, true); err != nil {
+		t.Fatalf("CreateFileWithMode() error = %v", err)
+	}
+
+	body, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	if string(body) != "" {
+		t.Fatalf("expected truncated file, got %q", string(body))
+	}
+}
+
+func TestPathLooksLikeDir(t *testing.T) {
+	tests := []struct {
+		path string
+		want bool
+	}{
+		{path: "dir/", want: true},
+		{path: "dir/file", want: false},
+		{path: "dir/file.go", want: false},
+	}
+
+	for _, tt := range tests {
+		if got := PathLooksLikeDir(tt.path); got != tt.want {
+			t.Fatalf("PathLooksLikeDir(%q) = %v, want %v", tt.path, got, tt.want)
+		}
+	}
+}

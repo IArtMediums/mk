@@ -1,1 +1,7 @@
 cmd_create_file
+mk
+.DS_Store
+bin/
+dist/
+coverage.out
+*.test

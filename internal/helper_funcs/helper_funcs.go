@@ -38,31 +38,64 @@ func CreateDir(path string) error {
 }
 
 func CreateFile(path string) error {
+	return CreateFileWithMode(path, false)
+}
+
+func CreateFileWithMode(path string, force bool) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
 
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+	flags := os.O_CREATE | os.O_WRONLY
+	if force {
+		flags |= os.O_TRUNC
+	} else {
+		flags |= os.O_EXCL
+	}
+
+	file, err := os.OpenFile(path, flags, 0o644)
 	if err != nil {
 		return err
 	}
 	return file.Close()
 }
 
-func CreatePath(path string) error {
-	dirsToCreate := filepath.Dir(path)
+func WriteFile(path, body string) error {
+	return WriteFileWithMode(path, body, false)
+}
 
-	err := os.MkdirAll(dirsToCreate, 0o755)
-	if err != nil {
+func WriteFileWithMode(path, body string, force bool) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
 
-	lastPathItem, _ := strings.CutPrefix(path, dirsToCreate)
+	flags := os.O_CREATE | os.O_WRONLY
+	if force {
+		flags |= os.O_TRUNC
+	} else {
+		flags |= os.O_EXCL
+	}
 
-	ext := filepath.Ext(lastPathItem)
+	file, err := os.OpenFile(path, flags, 0o644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
 
-	if ext == "" {
+	if _, err := file.WriteString(body); err != nil {
+		return err
+	}
+	return nil
+}
+
+func CreatePath(path string) error {
+	if PathLooksLikeDir(path) {
 		return CreateDir(path)
 	}
+
 	return CreateFile(path)
+}
+
+func PathLooksLikeDir(path string) bool {
+	return strings.HasSuffix(path, "/") || strings.HasSuffix(path, string(filepath.Separator))
 }
