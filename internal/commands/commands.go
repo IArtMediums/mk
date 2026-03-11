@@ -24,6 +24,9 @@ func HandleCommand(args []string, version string) error {
 	if len(args) == 1 && (args[0] == "version" || args[0] == "--version") {
 		return versionHandler(version)
 	}
+	if len(args) == 1 && args[0] == "update" {
+		return updateHandler(version)
+	}
 
 	printNotice := true
 	if len(args) > 1 && args[0] == "config" && args[1] == "setup" {
@@ -58,6 +61,11 @@ func (cfg *cmdConfig) handleCommand(version string) error {
 			return fmt.Errorf("usage: mk --version")
 		}
 		return versionHandler(version)
+	case "update":
+		if len(cfg.args) != 1 {
+			return fmt.Errorf("usage: mk update")
+		}
+		return updateHandler(version)
 	case "tmpl":
 		return cfg.handleTemplateCommand()
 	case "config":
@@ -248,6 +256,10 @@ func commandHelp() map[string]CommandHelp {
 		"version": {
 			Usage:       "mk --version",
 			Description: "Display the installed mk version.",
+		},
+		"update": {
+			Usage:       "mk update",
+			Description: "Check for a newer release and install it with go install when available.",
 		},
 	}
 }

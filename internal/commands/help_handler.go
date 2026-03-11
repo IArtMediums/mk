@@ -35,7 +35,7 @@ func helpHandler(cfg *cmdConfig) error {
 	if err := printHelpSection("Configuration Commands", []string{"config-edit", "config-setup", "config-help"}, help); err != nil {
 		return err
 	}
-	if err := printHelpSection("General Help", []string{"help", "version"}, help); err != nil {
+	if err := printHelpSection("General Help", []string{"help", "version", "update"}, help); err != nil {
 		return err
 	}
 

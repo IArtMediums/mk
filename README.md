@@ -181,6 +181,7 @@ The repository/module name is `mk`, and the installed executable is also named
 ```sh
 mk help
 mk --version
+mk update
 ```
 
 If `mk` is not found, the binary is installed but not yet on your `PATH`.
@@ -461,9 +462,31 @@ Fields:
 ```sh
 mk help
 mk --version
+mk update
 mk tmpl help
 mk config help
 ```
+
+## Updating
+
+To let `mk` check for a newer tagged release and install it with Go, run:
+
+```sh
+mk update
+```
+
+How it works:
+
+- checks the latest tagged version of `github.com/IArtMediums/mk`
+- compares it with the currently running `mk` version
+- runs `go install github.com/IArtMediums/mk@latest` only when a newer release exists
+- removes a legacy `mk-cli` binary from the Go install bin directory when found
+
+Notes:
+
+- Go must be installed and available on your `PATH`
+- local source builds may report `dev`; in that case `mk update` reinstalls the latest tagged release
+- Windows users should update manually with `go install github.com/IArtMediums/mk@latest`
 
 ## Shipping Notes
 
